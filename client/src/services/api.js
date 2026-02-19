@@ -2,7 +2,7 @@ import axios from "axios";
 
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_BACKEND_URL || "https://invoiceflow-billing-app-server-live.onrender.com",
+    baseURL: import.meta.env.VITE_BACKEND_URL || "https://invoiceflow-billing-app-live.onrender.com",
     headers: {
         "Content-Type": "application/json",
     },
