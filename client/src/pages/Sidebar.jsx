@@ -93,7 +93,13 @@ export function Sidebar() {
 
 
     return (
-        <aside className={`${collapsed ? 'w-16' : 'w-64'} min-h-screen bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border flex flex-col shrink-0`}>
+        <motion.aside
+            animate={{ width: collapsed ? 64 : 256 }}
+            transition={{ duration: 0.3 }}
+            className={`
+            ${collapsed ? 'w-16' : 'w-64'} 
+            min-h-screen bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border flex flex-col shrink-0`}
+        >
             {/* Logo */}
             <div className="p-6 border-b border-sidebar-border">
                 <div className="flex items-center gap-3">
@@ -276,6 +282,6 @@ export function Sidebar() {
                 </motion.div>
             </div>
 
-        </aside>
+        </motion.aside>
     );
 }

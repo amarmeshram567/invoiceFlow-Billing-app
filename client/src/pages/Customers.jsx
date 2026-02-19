@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, Edit2, Trash2, X } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 //import { customers as initialCustomers } from "../services/data";
 
@@ -51,6 +51,9 @@ export default function Customers() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState(null);
 
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
     const [form, setForm] = useState({
         name: "",
         email: "",
@@ -61,8 +64,17 @@ export default function Customers() {
 
 
     useEffect(() => {
-        fetchCustomers()
+        const loadCustomers = async () => {
+            try {
+                setLoading(true);
+                await fetchCustomers();
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadCustomers();
     }, []);
+
 
     const filtered = customerList.filter(
         (c) => c && c.name && c.email && (
@@ -97,6 +109,7 @@ export default function Customers() {
         }
 
         try {
+            setSaving(true);
             if (editingCustomer) {
                 const { data } = await api.put(`/api/customers/${editingCustomer.id}`, form);
                 setCustomerList((prev) =>
@@ -120,15 +133,22 @@ export default function Customers() {
         } catch (error) {
             toast.error(error.response?.data?.message || "Operation failed");
         }
+        finally {
+            setSaving(false);
+        }
     };
 
     const handleDelete = async (id) => {
         try {
+            setSaving(true);
             await api.delete(`/api/customers/${id}`);
             setCustomerList((prev) => prev.filter((c) => c.id !== id));
             toast.success("Customer deleted");
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to delete customer");
+        }
+        finally {
+            setSaving(false);
         }
     };
 
@@ -180,55 +200,59 @@ export default function Customers() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((c) => (
-                                <motion.tr
-                                    key={c.id}
-                                    initial={{ opacity: 0, y: 6 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0 }}
-                                    className="border-b last:border-0 hover:bg-muted/30"
-                                >
-                                    <td className="px-5 py-3">
-                                        <p className="font-medium">{c.name}</p>
-                                        <p className="text-xs text-muted-foreground">{c.address}</p>
-                                    </td>
-                                    <td className="px-5 py-3 text-muted-foreground">
-                                        {c.email}
-                                    </td>
-                                    <td className="px-5 py-3 text-muted-foreground">
-                                        {c.phone}
-                                    </td>
-                                    <td className="px-5 py-3 font-mono text-muted-foreground">
-                                        {c.gst_number || "—"}
-                                    </td>
-                                    <td className="px-5 py-3 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                onClick={() => openEdit(c)}
-                                                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(c.id)}
-                                                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted text-destructive"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </motion.tr>
-                            ))}
 
-                            {filtered.length === 0 && (
+                            {loading ? (
                                 <tr>
-                                    <td
-                                        colSpan={5}
-                                        className="text-center py-12 text-muted-foreground"
-                                    >
+                                    <td colSpan={5} className="text-center py-12">
+                                        <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                                    </td>
+                                </tr>
+                            ) : filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="text-center py-12 text-muted-foreground">
                                         No customers found
                                     </td>
                                 </tr>
+                            ) : (
+                                filtered.map((c) => (
+                                    <motion.tr
+                                        key={c.id}
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        className="border-b last:border-0 hover:bg-muted/30"
+                                    >
+                                        <td className="px-5 py-3">
+                                            <p className="font-medium">{c.name}</p>
+                                            <p className="text-xs text-muted-foreground">{c.address}</p>
+                                        </td>
+                                        <td className="px-5 py-3 text-muted-foreground">
+                                            {c.email}
+                                        </td>
+                                        <td className="px-5 py-3 text-muted-foreground">
+                                            {c.phone}
+                                        </td>
+                                        <td className="px-5 py-3 font-mono text-muted-foreground">
+                                            {c.gst_number || "—"}
+                                        </td>
+                                        <td className="px-5 py-3 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => openEdit(c)}
+                                                    className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(c.id)}
+                                                    className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted text-destructive"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </motion.tr>
+                                ))
                             )}
                         </tbody>
                     </table>
@@ -289,26 +313,6 @@ export default function Customers() {
                                 ))}
                             </div>
 
-
-                            {/* <div className="flex justify-end gap-2 mt-6">
-                                <button
-                                    onClick={() => setModalOpen(false)}
-                                    className="px-4 py-2 rounded-lg
-                     border border-gray-300 dark:border-zinc-600
-                     text-gray-700 dark:text-gray-300
-                     hover:bg-gray-100 dark:hover:bg-zinc-800 text-sm"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleSave}
-                                    className="px-4 py-2 rounded-lg
-                     bg-primary text-white text-sm
-                     hover:opacity-90"
-                                >
-                                    {editingCustomer ? "Update Customer" : "Add New Customer"}
-                                </button>
-                            </div> */}
                             <div className="flex justify-end gap-2 mt-6">
                                 {/* Cancel Button */}
                                 <button
@@ -328,7 +332,7 @@ export default function Customers() {
                transition-transform transition-shadow duration-300 ease-out
                hover:-translate-y-1 glow-effect-hover"
                                 >
-                                    {editingCustomer ? "Update Customer" : "Add New Customer"}
+                                    {saving ? "Saving..." : editingCustomer ? "Update Customer" : "Add New Customer"}
                                 </button>
                             </div>
 

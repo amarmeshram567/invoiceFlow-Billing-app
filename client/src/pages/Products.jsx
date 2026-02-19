@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, Edit2, Trash2, X } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency, products } from "../services/data";
+import { formatCurrency } from "../services/data";
 import api from "../services/api";
 import { useAppContext } from "../context/AppContext";
 
@@ -55,6 +55,10 @@ const Products = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState(null);
 
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+
     const [form, setForm] = useState({
         name: "",
         hsn_code: "",
@@ -67,11 +71,19 @@ const Products = () => {
 
 
     useEffect(() => {
-        fetchProducts()
+        const loadProducts = async () => {
+            try {
+                setLoading(true);
+                await fetchProducts();
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadProducts()
     }, []);
 
 
-    console.log("Products:", productList);
+    //console.log("Products:", productList);
 
     const filtered = productList.filter((p) =>
         (p?.name || "").toLowerCase().includes(search.toLowerCase())
@@ -111,6 +123,8 @@ const Products = () => {
         }
 
         try {
+            setSaving(true);
+
             if (editing) {
                 const { data } = await api.put(`/api/products/${editing.id}`, form);
                 setProductList((prev) =>
@@ -136,15 +150,22 @@ const Products = () => {
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to save product");
         }
+        finally {
+            setSaving(false);
+        }
     };
 
     const handleDelete = async (id) => {
         try {
+            setSaving(true);
             await api.delete(`/api/products/${id}`);
             setProductList((prev) => prev.filter((p) => p.id !== id));
             toast.success("Product deleted");
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to delete product");
+        }
+        finally {
+            setSaving(false);
         }
     };
 
@@ -194,63 +215,139 @@ const Products = () => {
                             </tr>
                         </thead>
 
-                        <tbody>
-                            {filtered.map((p) => (
-                                <tr
-                                    key={p?.id}
-                                    className="border-b border-border hover:bg-muted/50"
-                                >
-                                    <td className="px-5 py-3">
-                                        <p className="font-medium text-foreground">{p?.name}</p>
-                                        <p className="text-xs text-muted-foreground">{p?.unit}</p>
-                                    </td>
-
-                                    <td className="px-5 py-3 font-mono text-muted-foreground">
-                                        {p.hsn_code}
-                                    </td>
-
-                                    <td className="px-5 py-3 text-right font-semibold">
-                                        {formatCurrency(p?.price)}
-                                    </td>
-
-                                    <td className="px-5 py-3 text-right">
-                                        <span
-                                            className={`font-medium ${p?.stock < 40 ? "text-destructive" : "text-foreground"
-                                                }`}
-                                        >
-                                            {p?.stock_quantity}
-                                        </span>
-                                    </td>
-
-                                    <td className="px-5 py-3 text-right">{p?.tax_percent}%</td>
-
-                                    <td className="px-5 py-3 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                onClick={() => openEdit(p)}
-                                                className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(p?.id)}
-                                                className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-destructive"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                        {/* <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={6} className="text-center py-12">
+                                        <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                                     </td>
                                 </tr>
-                            ))}
-
-                            {filtered.length === 0 && (
+                            ) : filtered.length === 0 && (
                                 <tr>
                                     <td colSpan={6} className="py-10 text-center text-muted-foreground">
                                         No products found
                                     </td>
                                 </tr>
+                            ) :(
+                                filtered.map((p) => (
+                            <tr
+                                key={p?.id}
+                                className="border-b border-border hover:bg-muted/50"
+                            >
+                                <td className="px-5 py-3">
+                                    <p className="font-medium text-foreground">{p?.name}</p>
+                                    <p className="text-xs text-muted-foreground">{p?.unit}</p>
+                                </td>
+
+                                <td className="px-5 py-3 font-mono text-muted-foreground">
+                                    {p.hsn_code}
+                                </td>
+
+                                <td className="px-5 py-3 text-right font-semibold">
+                                    {formatCurrency(p?.price)}
+                                </td>
+
+                                <td className="px-5 py-3 text-right">
+                                    <span
+                                        className={`font-medium ${p?.stock < 40 ? "text-destructive" : "text-foreground"
+                                            }`}
+                                    >
+                                        {p?.stock_quantity}
+                                    </span>
+                                </td>
+
+                                <td className="px-5 py-3 text-right">{p?.tax_percent}%</td>
+
+                                <td className="px-5 py-3 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <button
+                                            onClick={() => openEdit(p)}
+                                            className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted"
+                                        >
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(p?.id)}
+                                            className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-destructive"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            ))
+                            )}
+                        </tbody> */}
+
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={6} className="text-center py-12">
+                                        <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                                    </td>
+                                </tr>
+                            ) : filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="py-10 text-center text-muted-foreground">
+                                        No products found
+                                    </td>
+                                </tr>
+                            ) : (
+                                filtered.map((p) => (
+                                    <tr
+                                        key={p?.id}
+                                        className="border-b border-border hover:bg-muted/50"
+                                    >
+                                        <td className="px-5 py-3">
+                                            <p className="font-medium text-foreground">{p?.name}</p>
+                                            <p className="text-xs text-muted-foreground">{p?.unit}</p>
+                                        </td>
+
+                                        <td className="px-5 py-3 font-mono text-muted-foreground">
+                                            {p?.hsn_code}
+                                        </td>
+
+                                        <td className="px-5 py-3 text-right font-semibold">
+                                            {formatCurrency(p?.price)}
+                                        </td>
+
+                                        <td className="px-5 py-3 text-right">
+                                            <span
+                                                className={`font-medium ${p?.stock_quantity < 40
+                                                    ? "text-destructive"
+                                                    : "text-foreground"
+                                                    }`}
+                                            >
+                                                {p?.stock_quantity}
+                                            </span>
+                                        </td>
+
+                                        <td className="px-5 py-3 text-right">
+                                            {p?.tax_percent}%
+                                        </td>
+
+                                        <td className="px-5 py-3 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => openEdit(p)}
+                                                    className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleDelete(p?.id)}
+                                                    className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-destructive"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
                             )}
                         </tbody>
+
                     </table>
                 </div>
             </div>
@@ -331,7 +428,11 @@ const Products = () => {
                transition-transform transition-shadow duration-300 ease-out
                hover:-translate-y-1 glow-effect-hover"
                             >
-                                {editing ? "Update Products" : "Add Products"}
+                                {saving
+                                    ? (editing ? "Updating Product..." : "Adding Product...")
+                                    : (editing ? "Update Product" : "Add Product")
+                                }
+
                             </button>
                         </div>
                     </div>

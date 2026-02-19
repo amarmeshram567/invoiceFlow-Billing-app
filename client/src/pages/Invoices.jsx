@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, Eye, Search, X } from "lucide-react";
-import { formatCurrency, invoices } from "../services/data";
+import { Plus, Eye, Search, X, Loader2 } from "lucide-react";
+import { formatCurrency } from "../services/data";
 import { StatusBadge } from "../components/StatusBadge";
 import { toast } from "sonner"
 import { useAppContext } from "../context/AppContext";
@@ -30,15 +30,40 @@ export default function Invoices() {
     const [discount, setDiscount] = useState(0);
 
 
-    useEffect(() => {
-        fetchCustomers();
-        fetchProducts();
-    }, []);
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
 
     useEffect(() => {
-        if (customers.length && products.length) {
-            fetchInvoices();
+        const loadData = async () => {
+            try {
+                setLoading(true);
+                await fetchCustomers();
+                await fetchProducts();
+            } finally {
+                setLoading(false);
+            }
         }
+        loadData();
+    }, []);
+
+
+
+    useEffect(() => {
+
+        const loadInvoices = async () => {
+            try {
+                setLoading(true);
+                if (customers.length && products.length) {
+                    await fetchInvoices();
+                }
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        loadInvoices();
+
     }, [customers, products]);
 
 
@@ -54,15 +79,18 @@ export default function Invoices() {
     });
 
 
-    console.log("Customers:", customers);
-    console.log("Products:", products);
-    console.log("Invoices:", invoiceList);
-    console.log("Filtered:", filtered);
+    // console.log("Customers:", customers);
+    // console.log("Products:", products);
+    // console.log("Invoices:", invoiceList);
+    // console.log("Filtered:", filtered);
 
     const addLineItem = () => setLineItems([...lineItems, { productId: "", quantity: 1 }]);
     const removeLineItem = (idx) => setLineItems(lineItems.filter((_, i) => i !== idx));
     const updateLineItem = (idx, field, value) =>
         setLineItems(lineItems.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
+
+
+    // console.log("Line Items:", lineItems)
 
     const computeTotals = () => {
         let subtotal = 0;
@@ -71,14 +99,14 @@ export default function Invoices() {
         lineItems.forEach((li) => {
             const prod = products.find((p) => p.id === li.productId);
             if (!prod) return;
-            const lineTotal = prod.price * li.quantity;
-            const lineTax = lineTotal * (prod.taxRate / 100);
+            const lineTotal = prod.price * li.stock_quantity;
+            const lineTax = lineTotal * (prod.tax_percent / 100);
             subtotal += lineTotal;
             taxAmount += lineTax;
             items.push({
                 productId: prod.id,
                 productName: prod.name,
-                quantity: li.quantity,
+                quantity: li.stock_quantity,
                 price: prod.price,
                 taxRate: prod.tax_percent,
                 amount: lineTotal + lineTax,
@@ -104,8 +132,9 @@ export default function Invoices() {
             }
         });
 
-        try {
 
+        try {
+            setSaving(true)
             await api.post("/api/invoices", {
                 customer_id: selectedCustomer,
                 items: itemsPayload,
@@ -122,6 +151,9 @@ export default function Invoices() {
             console.log("Create Invoice Error:", error);
             console.log("Response:", error.response?.data);
             toast.error(error.response?.data?.message || "Failed to create invoice");
+        }
+        finally {
+            setSaving(false);
         }
     }
 
@@ -196,30 +228,44 @@ export default function Invoices() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((inv) => (
-                                <tr
-                                    key={inv.id}
-                                    className="border-b last:border-0 hover:bg-muted/30 transition-colors"
-                                >
-                                    <td className="px-5 py-3">{inv.invoiceNumber}</td>
-                                    <td className="px-5 py-3">{inv.customerName}</td>
-                                    <td className="px-5 py-3">{inv.date}</td>
-                                    <td className="px-5 py-3 text-right font-semibold">{formatCurrency(inv.total)}</td>
-                                    <td className="px-5 py-3 text-right">{formatCurrency(inv.amountPaid)}</td>
-                                    <td className="px-5 py-3 text-center">
-                                        <StatusBadge status={inv.status} />
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={7} className="text-center py-12">
+                                        <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                                     </td>
-                                    <td className="px-5 py-3">
-                                        <div className="flex justify-center">
-                                            <button onClick={() => setViewInvoice(inv)}>
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-
-
                                 </tr>
-                            ))}
+                            ) : filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-5 py-3 text-center">
+                                        No invoices found.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filtered.map((inv) => (
+                                    <tr
+                                        key={inv.id}
+                                        className="border-b last:border-0 hover:bg-muted/30 transition-colors"
+                                    >
+                                        <td className="px-5 py-3">{inv.invoiceNumber}</td>
+                                        <td className="px-5 py-3">{inv.customerName}</td>
+                                        <td className="px-5 py-3">{inv.date}</td>
+                                        <td className="px-5 py-3 text-right font-semibold">{formatCurrency(inv.total)}</td>
+                                        <td className="px-5 py-3 text-right">{formatCurrency(inv.amountPaid)}</td>
+                                        <td className="px-5 py-3 text-center">
+                                            <StatusBadge status={inv.status} />
+                                        </td>
+                                        <td className="px-5 py-3">
+                                            <div className="flex justify-center">
+                                                <button onClick={() => setViewInvoice(inv)}>
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+
+
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -338,10 +384,10 @@ export default function Invoices() {
                             >
                                 Cancel
                             </button>
-                            <button className="px-4 py-2 rounded-lg bg-primary text-white text-sm
+                            <button disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-white text-sm
                transition-transform transition-shadow duration-300 ease-out
                hover:-translate-y-1 glow-effect-hover" onClick={handleCreate}>
-                                Create Invoice
+                                {saving ? "Creating..." : "Create Invoice"}
                             </button>
                         </div>
                     </div>
@@ -429,14 +475,15 @@ export default function Invoices() {
 
                         <div className="flex justify-end mt-3 gap-2 print:hidden">
                             <button
-                                className="px-4 py-2 border rounded-lg"
+                                className="px-4 py-2 border rounded-lg text-sm transition-transform transition-shadow duration-300 ease-out
+               hover:-translate-y-1 hover:shadow-lg"
                                 onClick={() => window.print()}
                             >
                                 Print
                             </button>
 
                             <button
-                                className="px-4 py-2 border rounded-lg"
+                                className="px-4 py-2 border rounded-lg text-sm transition-transform transition-shadow duration-300 ease-out hover:-translate-y-1 glow-effect-hover"
                                 onClick={() => setViewInvoice(null)}
                             >
                                 Close

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "../components/PageHeader";
@@ -26,7 +26,7 @@ export function PaymentModeBadge({ mode }) {
 
 export default function Payments() {
 
-    const { paymentList, setPaymentList, fetchPayments, fetchInvoices, invoiceList: invoices } = useAppContext();
+    const { paymentList, fetchPayments, fetchInvoices, invoiceList: invoices } = useAppContext();
 
     //const [paymentList, setPaymentList] = useState(payments);
     const [search, setSearch] = useState("");
@@ -39,15 +39,26 @@ export default function Payments() {
         note: "",
     });
 
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
 
     useEffect(() => {
-        fetchPayments();
-        fetchInvoices();
+        const loadPayments = async () => {
+            try {
+                setLoading(true);
+                await fetchPayments();
+                await fetchInvoices();
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadPayments();
     }, [])
 
 
-    console.log("Invoices:", invoices);
-    console.log("Payments:", paymentList);
+    // console.log("Invoices:", invoices);
+    // console.log("Payments:", paymentList);
 
     const filtered = paymentList.filter(
         (p) =>
@@ -65,6 +76,7 @@ export default function Payments() {
         }
 
         try {
+            setSaving(true);
             const { data } = await api.post("/api/payments", {
                 invoice_id: form.invoiceId,
                 amount: Number(form.amount),
@@ -83,6 +95,9 @@ export default function Payments() {
             }
         } catch (error) {
             toast.error("Failed to record payment");
+        }
+        finally {
+            setSaving(false);
         }
     }
 
@@ -134,23 +149,49 @@ export default function Payments() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((p) => (
-                                <tr key={p.id} className="border-b hover:bg-muted/30">
-                                    <td className="px-5 py-3 text-sm font-medium">{p.invoiceNumber}</td>
-                                    <td className="px-5 py-3 text-sm text-muted-foreground">{p.customerName}</td>
-                                    <td className="px-5 py-3 text-sm text-muted-foreground">{p.date}</td>
-                                    <td className="px-5 py-3 text-sm font-semibold text-right">
-                                        {formatCurrency(p.amount)}
-                                    </td>
-                                    <td className="px-5 py-3 text-center">
-                                        <PaymentModeBadge mode={p.mode} />
-                                    </td>
-                                    <td className="px-5 py-3 text-sm text-muted-foreground">
-                                        {p.note || "—"}
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="7" className="py-10 text-center">
+                                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" />
                                     </td>
                                 </tr>
-                            ))}
+                            ) : filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" className="py-10 text-center text-muted-foreground">
+                                        No payments found.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filtered.map((p) => (
+                                    <tr key={p.id} className="border-b hover:bg-muted/30">
+                                        <td className="px-5 py-3 text-sm font-medium">
+                                            {p.invoiceNumber}
+                                        </td>
+
+                                        <td className="px-5 py-3 text-sm text-muted-foreground">
+                                            {p.customerName}
+                                        </td>
+
+                                        <td className="px-5 py-3 text-sm text-muted-foreground">
+                                            {p.date}
+                                        </td>
+
+                                        <td className="px-5 py-3 text-sm font-semibold text-right">
+                                            {formatCurrency(p.amount)}
+                                        </td>
+
+                                        <td className="px-5 py-3 text-center">
+                                            <PaymentModeBadge mode={p.mode} />
+                                        </td>
+
+                                        <td className="px-5 py-3 text-sm text-muted-foreground">
+                                            {p.note || "—"}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
+
                     </table>
                 </div>
             </div>
@@ -255,7 +296,7 @@ export default function Payments() {
                hover:-translate-y-1 glow-effect-hover"
                                 onClick={handleAdd}
                             >
-                                Record Payment
+                                {saving ? "Recording..." : "Record Payment"}
                             </button>
                         </div>
                     </div>
