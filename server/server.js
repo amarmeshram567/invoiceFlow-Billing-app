@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 5000
 
 
 const allowsOrigins = [
-    "http://localhost:5173",
+    "http://localhost:5173", "https://invoice-flow-billing-app.vercel.app",
 ]
 
 
